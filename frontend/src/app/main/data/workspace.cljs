@@ -2284,6 +2284,7 @@
 
 ;; Transform
 
+(dm/export dwt/trigger-bounding-box-cloacing)
 (dm/export dwt/start-resize)
 (dm/export dwt/update-dimensions)
 (dm/export dwt/change-orientation)
