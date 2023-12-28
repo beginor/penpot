@@ -105,11 +105,13 @@
         modifiers         (mf/deref refs/workspace-modifiers)
         text-modifiers    (mf/deref refs/workspace-text-modifier)
 
-        objects-modified  (mf/with-memo
-                            [base-objects text-modifiers modifiers]
+        objects-modified  (mf/with-memo [base-objects text-modifiers modifiers]
                             (apply-modifiers-to-selected selected base-objects text-modifiers modifiers))
 
-        selected-shapes   (->> selected (keep (d/getf objects-modified)))
+        ;; We coerce all to a vector because many of the components
+        ;; that uses this value performs a count operation and vectors
+        ;; has constant time count impl.
+        selected-shapes   (into [] (keep (d/getf objects-modified)) selected)
 
         background        (get options :background clr/canvas)
 
