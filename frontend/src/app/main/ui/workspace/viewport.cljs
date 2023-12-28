@@ -69,7 +69,8 @@
    selected))
 
 (mf/defc viewport
-  [{:keys [selected wglobal wlocal layout file palete-size] :as props}]
+  {::mf/wrap-props false}
+  [{:keys [selected wglobal wlocal layout file palete-size]}]
   (let [;; When adding data from workspace-local revisit `app.main.ui.workspace` to check
         ;; that the new parameter is sent
         {:keys [edit-path
@@ -159,38 +160,38 @@
         ;; Only when we have all the selected shapes in one frame
         selected-frame    (when (= (count selected-frames) 1) (get base-objects (first selected-frames)))
 
-        editing-shape     (when edition (get base-objects edition))
+        editing-shape     (when (some? edition) (get base-objects edition))
 
         create-comment?   (= :comments drawing-tool)
-        drawing-path?     (or (and edition (= :draw (get-in edit-path [edition :edit-mode])))
+        drawing-path?     (or (and (some? edition) (= :draw (get-in edit-path [edition :edit-mode])))
                               (and (some? drawing-obj) (= :path (:type drawing-obj))))
-        node-editing?     (and edition (= :path (get-in base-objects [edition :type])))
-        text-editing?     (and edition (= :text (get-in base-objects [edition :type])))
-        grid-editing?     (and edition (ctl/grid-layout? base-objects edition))
+        node-editing?     (and (some? edition) (= :path (get-in base-objects [edition :type])))
+        text-editing?     (and (some? edition) (= :text (get-in base-objects [edition :type])))
+        grid-editing?     (and (some? edition) (ctl/grid-layout? base-objects edition))
 
-        workspace-read-only? (mf/use-ctx ctx/workspace-read-only?)
-        mode-inspect?       (= options-mode :inspect)
+        read-only?        (mf/use-ctx ctx/workspace-read-only?)
+        mode-inspect?     (= options-mode :inspect)
 
         on-click          (actions/on-click hover selected edition drawing-path? drawing-tool space? selrect z?)
-        on-context-menu   (actions/on-context-menu hover hover-ids workspace-read-only?)
-        on-double-click   (actions/on-double-click hover hover-ids hover-top-frame-id drawing-path? base-objects edition drawing-tool z? workspace-read-only?)
+        on-context-menu   (actions/on-context-menu hover hover-ids read-only?)
+        on-double-click   (actions/on-double-click hover hover-ids hover-top-frame-id drawing-path? base-objects edition drawing-tool z? read-only?)
         on-drag-enter     (actions/on-drag-enter)
         on-drag-over      (actions/on-drag-over move-stream)
         on-drop           (actions/on-drop file)
         on-pointer-down   (actions/on-pointer-down @hover selected edition drawing-tool text-editing? node-editing? grid-editing?
-                                                   drawing-path? create-comment? space? panning z? workspace-read-only?)
+                                                   drawing-path? create-comment? space? panning z? read-only?)
 
         on-pointer-up     (actions/on-pointer-up disable-paste)
 
         on-pointer-enter  (actions/on-pointer-enter in-viewport?)
         on-pointer-leave  (actions/on-pointer-leave in-viewport?)
         on-pointer-move   (actions/on-pointer-move move-stream)
-        on-move-selected  (actions/on-move-selected hover hover-ids selected space? z? workspace-read-only?)
-        on-menu-selected  (actions/on-menu-selected hover hover-ids selected workspace-read-only?)
+        on-move-selected  (actions/on-move-selected hover hover-ids selected space? z? read-only?)
+        on-menu-selected  (actions/on-menu-selected hover hover-ids selected read-only?)
 
         on-frame-enter    (actions/on-frame-enter frame-hover)
         on-frame-leave    (actions/on-frame-leave frame-hover)
-        on-frame-select   (actions/on-frame-select selected workspace-read-only?)
+        on-frame-select   (actions/on-frame-select selected read-only?)
 
         disable-events?          (contains? layout :comments)
         show-comments?           (= drawing-tool :comments)
@@ -203,16 +204,16 @@
         show-outlines?           (and (nil? transform)
                                       (not edition)
                                       (not drawing-obj)
-                                      (not (#{:comments :path :curve} drawing-tool)))
+                                      (not (contains? #{:comments :path :curve} drawing-tool)))
 
         show-pixel-grid?         (and (contains? layout :show-pixel-grid)
                                       (>= zoom 8))
-        show-text-editor?        (and editing-shape (= :text (:type editing-shape)))
+        show-text-editor?        (and (some? editing-shape) (= :text (:type editing-shape)))
 
         hover-grid?              (and (some? @hover-top-frame-id)
                                       (ctl/grid-layout? objects @hover-top-frame-id))
 
-        show-grid-editor?        (and editing-shape (ctl/grid-layout? editing-shape))
+        show-grid-editor?        (and (some? editing-shape) (ctl/grid-layout? editing-shape))
         show-presence?           page-id
         show-prototypes?         (= options-mode :prototype)
         show-selection-handlers? (and (seq selected) (not show-text-editor?))
@@ -222,7 +223,7 @@
         show-snap-points?        (and (or (contains? layout :dynamic-alignment)
                                           (contains? layout :snap-grid))
                                       (or drawing-obj transform))
-        show-selrect?            (and selrect (empty? drawing) (not text-editing?))
+        show-selrect?            (and (some? selrect) (empty? drawing) (not text-editing?))
         show-measures?           (and (not transform)
                                       (not node-editing?)
                                       (or show-distances? mode-inspect?))
@@ -262,9 +263,9 @@
 
         rule-area-size (/ rules/rule-area-size zoom)]
 
-    (hooks/setup-dom-events zoom disable-paste in-viewport? workspace-read-only?)
+    (hooks/setup-dom-events zoom disable-paste in-viewport? read-only?)
     (hooks/setup-viewport-size vport viewport-ref)
-    (hooks/setup-cursor cursor alt? mod? space? panning drawing-tool drawing-path? node-editing? z? workspace-read-only?)
+    (hooks/setup-cursor cursor alt? mod? space? panning drawing-tool drawing-path? node-editing? z? read-only?)
     (hooks/setup-keyboard alt? mod? space? z? shift?)
     (hooks/setup-hover-shapes page-id move-stream base-objects transform selected mod? hover hover-ids hover-top-frame-id @hover-disabled? focus zoom show-measures?)
     (hooks/setup-viewport-modifiers modifiers base-objects)
