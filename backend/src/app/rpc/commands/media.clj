@@ -71,24 +71,13 @@
       (with-meta object
         {::audit/replace-props props}))))
 
-(defn- big-enough-for-thumbnail?
-  "Checks if the provided image info is big enough for
-  create a separate thumbnail storage object."
-  [info]
-  (or (> (:width info) (:width thumbnail-options))
-      (> (:height info) (:height thumbnail-options))))
-
-(defn- svg-image?
-  [info]
-  (= (:mtype info) "image/svg+xml"))
-
 ;; NOTE: we use the `on conflict do update` instead of `do nothing`
 ;; because postgresql does not returns anything if no update is
 ;; performed, the `do update` does the trick.
 
 (def sql:create-file-media-object
-  "insert into file_media_object (id, file_id, is_local, name, media_id, thumbnail_id, width, height, mtype)
-   values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  "insert into file_media_object (id, file_id, is_local, name, media_id, width, height, mtype)
+   values (?, ?, ?, ?, ?, ?, ?, ?)
        on conflict (id) do update set created_at=file_media_object.created_at
        returning *")
 
@@ -106,53 +95,27 @@
 ;; witch holds the reference to storage object (it some kind of
 ;; inverse, soft referential integrity).
 
-(defn- process-main-image
-  [info]
-  (let [hash (sto/calculate-hash (:path info))
-        data (-> (sto/content (:path info))
-                 (sto/wrap-with-hash hash))]
-    {::sto/content data
-     ::sto/deduplicate? true
-     ::sto/touched-at (:ts info)
-     :content-type (:mtype info)
-     :bucket "file-media-object"}))
-
-(defn- process-thumb-image
-  [info]
-  (let [thumb (-> thumbnail-options
-                  (assoc :cmd :generic-thumbnail)
-                  (assoc :input info)
-                  (media/run))
-        hash  (sto/calculate-hash (:data thumb))
-        data  (-> (sto/content (:data thumb) (:size thumb))
-                  (sto/wrap-with-hash hash))]
-    {::sto/content data
-     ::sto/deduplicate? true
-     ::sto/touched-at (:ts info)
-     :content-type (:mtype thumb)
-     :bucket "file-media-object"}))
-
 (defn- process-image
   [content]
-  (let [info (media/run {:cmd :info :input content})]
-    (cond-> info
-      (and (not (svg-image? info))
-           (big-enough-for-thumbnail? info))
-      (assoc ::thumb (process-thumb-image info))
+  (let [info (media/run {:cmd :info :input content})
+        hash (sto/calculate-hash (:path info))
+        data (-> (sto/content (:path info))
+                 (sto/wrap-with-hash hash))]
 
-      :always
-      (assoc ::image (process-main-image info)))))
+    (assoc info ::image
+           {::sto/content data
+            ::sto/deduplicate? true
+            ::sto/touched-at (:ts info)
+            :content-type (:mtype info)
+            :bucket "file-media-object"})))
 
 (defn create-file-media-object
   [{:keys [::sto/storage ::db/conn ::wrk/executor] :as cfg}
    {:keys [id file-id is-local name content]}]
 
-  (let [result (-> (climit/configure cfg :process-image/global)
-                   (climit/run! (partial process-image content) executor))
-
-        image  (sto/put-object! storage (::image result))
-        thumb  (when-let [params (::thumb result)]
-                 (sto/put-object! storage params))]
+  (let [result  (-> (climit/configure cfg :process-image/global)
+                    (climit/run! (partial process-image content) executor))
+        image   (sto/put-object! storage (::image result))]
 
     (db/update! conn :file
                 {:modified-at (dt/now)
@@ -163,7 +126,6 @@
                         (or id (uuid/next))
                         file-id is-local name
                         (:id image)
-                        (:id thumb)
                         (:width result)
                         (:height result)
                         (:mtype result)])))
