@@ -6,7 +6,6 @@
 
 (ns app.main
   (:require
-   ["/app/plugins"]
    [app.common.data.macros :as dm]
    [app.common.logging :as log]
    [app.common.uuid :as uuid]
@@ -26,6 +25,7 @@
    [app.main.ui.modal :refer [modal]]
    [app.main.ui.routes :as rt]
    [app.main.worker :as worker]
+   [app.plugins]
    [app.util.dom :as dom]
    [app.util.i18n :as i18n]
    [app.util.theme :as theme]

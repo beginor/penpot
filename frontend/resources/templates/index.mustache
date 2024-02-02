@@ -44,6 +44,16 @@
     <div id="app"></div>
     <section id="modal"></section>
     {{# manifest}}
+
+    <script type="importmap">
+      {"imports": {"plugins-runtime": "/js/plugins-runtime.mjs"}}
+    </script>
+
+    <script type="module">
+      import * as foo from "plugins-runtime";
+      foo.initialize();
+    </script>
+
     <script src="{{& shared}}"></script>
     <script src="{{& main}}"></script>
     {{/manifest}}
