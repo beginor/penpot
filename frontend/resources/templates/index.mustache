@@ -49,13 +49,18 @@
       {"imports": {"plugins-runtime": "/js/plugins-runtime.mjs"}}
     </script>
 
-    <script type="module">
-      import * as foo from "plugins-runtime";
-      foo.initialize();
-    </script>
-
     <script src="{{& shared}}"></script>
     <script src="{{& main}}"></script>
+
+    <script type="module">
+      import * as runtime from "plugins-runtime";
+
+      // console.log(globalThis.app.plugins);
+      runtime.initialize(globalThis.app.plugins);
+    </script>
+
+    <penpot-plugins />
+
     {{/manifest}}
   </body>
 </html>

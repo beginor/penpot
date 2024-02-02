@@ -7,21 +7,22 @@
 (ns app.plugins
   "RPC for plugins runtime."
   (:require
+   [app.common.record :as crc]
+   [app.main.store :as st]
    [app.util.timers :as tm]
    [app.common.exceptions :as ex]))
 
-(defonce channel
-  (js/BroadcastChannel. "penpot:plugins"))
+(deftype FileRef [$id])
 
-(defn on-request
-  [event]
-  (let [data (unchecked-get event "data")]
-    (case data
-      "ping" (.postMessage channel "pong")
-      nil)))
-
-(.addEventListener channel "message" on-request)
-
-(tm/schedule 2000 #(.postMessage channel "initialized"))
+(crc/define-properties!
+  FileRef
+  {:name "id"
+   :get (fn []
+          (this-as self
+            (str (unchecked-get self "$id"))))})
 
 
+(defn ^:export getCurrentFile
+  []
+  (when-let [file-id (:current-file-id @st/state)]
+    (FileRef. file-id)))

@@ -1,23 +1,18 @@
 export class PluginsElement extends HTMLElement {
   connectedCallback() {
-    console.log('init hola', state);
+    console.log('PluginsElement.connectedCallback');
   }
 }
 
-export function initialize() {
-  customElements.define('penpot-plugins', PluginsElement);
+customElements.define('penpot-plugins', PluginsElement);
 
-  const channel = new BroadcastChannel("penpot:plugins");
+// Alternative to message passing
+export function initialize(api) {
+  console.log("PluginsRuntime:initialize", api)
 
-  channel.addEventListener("message", (event) => {
-    const eventData = event.data;
-    console.log("PluginsRuntime | received:", eventData);
+  setTimeout(() => {
+    const file = api.getCurrentFile();
+    console.log("PluginsRuntime:initialize", file);
+  }, 5000);
 
-    if (eventData === "initialized") {
-      console.log("PluginsRuntime | sending ping");
-      channel.postMessage("ping");
-    }
-  });
-
-  console.log("PluginsRuntime | initialized");
 };
