@@ -6,6 +6,7 @@
 
 (ns app.main
   (:require
+   ["/app/plugins"]
    [app.common.data.macros :as dm]
    [app.common.logging :as log]
    [app.common.uuid :as uuid]
