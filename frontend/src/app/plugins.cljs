@@ -7,22 +7,118 @@
 (ns app.plugins
   "RPC for plugins runtime."
   (:require
+   [app.common.data.macros :as dm]
+   [app.common.exceptions :as ex]
    [app.common.record :as crc]
+   [app.main.refs :as refs]
    [app.main.store :as st]
-   [app.util.timers :as tm]
-   [app.common.exceptions :as ex]))
+   [goog.functions :as gf]
+   [app.util.array :as array]
+   [app.util.rxops :as rxops]
+   [app.util.timers :as tm]))
 
-(deftype FileRef [$id])
+;; ---- TYPES
+
+(deftype ShapeProxy [id name type _data])
+
+(defn data->shape-proxy
+  [data]
+  (->ShapeProxy (str (:id data))
+                (:name data)
+                (name (:type data))
+                data))
+
+(def ^:private
+  xf-map-shape-proxy
+  (comp
+   (map val)
+   (map data->shape-proxy)))
+
+(deftype PageProxy [id name _data]
+  Object
+  (getShapes [_]
+    ;; Returns a lazy (iterable) of all available shapes
+    (sequence xf-map-shape-proxy (:objects _data))))
+
+(defn- data->page-proxy
+  [data]
+  (->PageProxy (str (:id data))
+               (:name data)
+               data))
+
+(def ^:private
+  xf-map-page-proxy
+  (comp
+   (map val)
+   (map data->page-proxy)))
+
+(deftype FileProxy [id name _data]
+  Object
+  (getPages [_]
+    ;; Returns a lazy (iterable) of all available pages
+    (sequence xf-map-page-proxy (:pages-index _data))))
+
+;; ---- PROPERTIES
 
 (crc/define-properties!
-  FileRef
-  {:name "id"
-   :get (fn []
-          (this-as self
-            (str (unchecked-get self "$id"))))})
+  FileProxy
+  {:name js/Symbol.toStringTag
+   :get (fn [] (str "FileProxy"))})
 
+(crc/define-properties!
+  PageProxy
+  {:name js/Symbol.toStringTag
+   :get (fn [] (str "PageProxy"))})
+
+(crc/define-properties!
+  ShapeProxy
+  {:name js/Symbol.toStringTag
+   :get (fn [] (str "ShapeProxy"))})
+
+;; ---- PUBLIC API
 
 (defn ^:export getCurrentFile
   []
-  (when-let [file-id (:current-file-id @st/state)]
-    (FileRef. file-id)))
+  (let [data (:workspace-data @st/state)]
+    (when (some? data)
+      (let [file (:workspace-file @st/state)]
+        (->FileProxy (str (:id file))
+                     (:name file)
+                     data)))))
+
+(defn ^:export getCurrentPage
+  []
+  (when-let [page-id (:current-page-id @st/state)]
+    (when-let [data (get-in @st/state [:workspace-data :pages-index page-id])]
+      (data->page-proxy data))))
+
+;; (defonce listeners
+;;   (atom {}))
+
+(defn ^:export addListener
+  [key type f]
+  (let [f (gf/debounce f 500)]
+    (case type
+      "file"
+      (add-watch st/state key
+                 (fn [_ _ old-val new-val]
+                   (let [old-file (:workspace-file old-val)
+                         new-file (:workspace-file new-val)
+                         old-data (:workspace-data old-val)
+                         new-data (:workspace-data new-val)]
+                     (when-not (and (identical? old-file new-file)
+                                    (identical? old-data new-data))
+                       (f (->FileProxy (str (:id new-file))
+                                       (:name new-file)
+                                       new-data))))))
+      "page"
+      (add-watch st/state key
+                 (fn [_ _ old-val new-val]
+                   (let [old-page-id (:current-page-id old-val)
+                         new-page-id (:current-page-id new-val)
+                         old-page    (dm/get-in old-val [:workspace-data :pages-index old-page-id])
+                         new-page    (dm/get-in new-val [:workspace-data :pages-index new-page-id])]
+
+                     (when-not (identical? old-page new-page)
+                       (f (data->page-proxy new-page)))))))))
+

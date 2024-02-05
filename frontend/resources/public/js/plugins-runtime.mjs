@@ -10,9 +10,7 @@ customElements.define('penpot-plugins', PluginsElement);
 export function initialize(api) {
   console.log("PluginsRuntime:initialize", api)
 
-  setTimeout(() => {
-    const file = api.getCurrentFile();
-    console.log("PluginsRuntime:initialize", file);
-  }, 5000);
-
+  api.addListener("foobar", "page", (page) => {
+    console.log("Page Changed:", page.name);
+  });
 };
