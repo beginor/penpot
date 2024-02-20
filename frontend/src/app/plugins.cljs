@@ -92,6 +92,12 @@
     (when-let [data (get-in @st/state [:workspace-data :pages-index page-id])]
       (data->page-proxy data))))
 
+(defn ^:export getCurrentSelection
+  []
+  (let [selection (get-in @st/state [:workspace-local :selected])]
+    (when (some? selection)
+      selection)))
+
 ;; (defonce listeners
 ;;   (atom {}))
 
@@ -118,7 +124,14 @@
                          new-page-id (:current-page-id new-val)
                          old-page    (dm/get-in old-val [:workspace-data :pages-index old-page-id])
                          new-page    (dm/get-in new-val [:workspace-data :pages-index new-page-id])]
-
                      (when-not (identical? old-page new-page)
-                       (f (data->page-proxy new-page)))))))))
+                       (f (data->page-proxy new-page))))))
+      "selection"
+      (add-watch st/state key
+                 (fn [_ _ old-val new-val]
+                   (let [old-selection (get-in old-val [:workspace-local :selected])
+                         new-selection (get-in new-val [:workspace-local :selected])]
+                     (when-not (identical? old-selection new-selection)
+                       (f new-selection)))))
+      )))
 
