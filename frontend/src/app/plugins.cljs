@@ -52,7 +52,7 @@
    (map val)
    (map data->page-proxy)))
 
-(deftype FileProxy [id name _data]
+(deftype FileProxy [id name revn _data]
   Object
   (getPages [_]
     ;; Returns a lazy (iterable) of all available pages
@@ -84,6 +84,7 @@
       (let [file (:workspace-file @st/state)]
         (->FileProxy (str (:id file))
                      (:name file)
+                     (:revn file)
                      data)))))
 
 (defn ^:export getCurrentPage
@@ -116,6 +117,7 @@
                                     (identical? old-data new-data))
                        (f (->FileProxy (str (:id new-file))
                                        (:name new-file)
+                                       (:revn new-file)
                                        new-data))))))
       "page"
       (add-watch st/state key
