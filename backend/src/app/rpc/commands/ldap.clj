@@ -41,6 +41,7 @@
    ::doc/added "1.15"
    ::doc/module :auth}
   [{:keys [::main/props ::ldap/provider] :as cfg} params]
+
   (when-not provider
     (ex/raise :type :restriction
               :code :ldap-not-initialized
@@ -72,7 +73,7 @@
               (rph/with-meta {::audit/props (:props profile)
                               ::audit/profile-id (:id profile)})))
 
-        (-> profile
+        (-> (profile/strip-private-attrs profile)
             (rph/with-transform (session/create-fn cfg (:id profile)))
             (rph/with-meta {::audit/props (:props profile)
                             ::audit/profile-id (:id profile)}))))))

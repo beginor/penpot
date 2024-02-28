@@ -53,28 +53,6 @@
                      :else
                      (st/emit! (msg/error (tr "errors.generic"))))))))
 
-(defn- login-with-ldap
-  [event params]
-  (dom/prevent-default event)
-  (dom/stop-propagation event)
-  (let [{:keys [on-error]} (meta params)]
-    (->> (rp/cmd! :login-with-ldap params)
-         (rx/subs! (fn [profile]
-                     (if-let [token (:invitation-token profile)]
-                       (st/emit! (rt/nav :auth-verify-token {} {:token token}))
-                       (st/emit! (du/login-from-token {:profile profile}))))
-                   (fn [{:keys [type code] :as error}]
-                     (cond
-                       (and (= type :restriction)
-                            (= code :ldap-not-initialized))
-                       (st/emit! (msg/error (tr "errors.ldap-disabled")))
-
-                       (fn? on-error)
-                       (on-error error)
-
-                       :else
-                       (st/emit! (msg/error (tr "errors.generic")))))))))
-
 (s/def ::email ::us/email)
 (s/def ::password ::us/not-empty-string)
 (s/def ::invitation-token ::us/not-empty-string)
@@ -108,6 +86,11 @@
               (reset! error (tr "errors.profile-blocked"))
 
               (and (= :restriction (:type cause))
+                   (= :ldap-not-initialized (:code cause)))
+              (st/emit! (msg/error (tr "errors.ldap-disabled")))
+
+
+              (and (= :restriction (:type cause))
                    (= :admin-only-profile (:code cause)))
               (reset! error (tr "errors.profile-blocked"))
 
@@ -123,9 +106,10 @@
               (reset! error (tr "errors.generic")))))
 
         on-success-default
-        (fn [data]
-          (when-let [token (:invitation-token data)]
-            (st/emit! (rt/nav :auth-verify-token {} {:token token}))))
+        (mf/use-fn
+         (fn [data]
+           (when-let [token (:invitation-token data)]
+             (st/emit! (rt/nav :auth-verify-token {} {:token token})))))
 
         on-success
         (fn [data]
@@ -146,11 +130,15 @@
         (mf/use-callback
          (mf/deps form)
          (fn [event]
+           (dom/prevent-default event)
+           (dom/stop-propagation event)
+
            (reset! error nil)
-           (let [params (:clean-data @form)]
-             (login-with-ldap event (with-meta params
-                                      {:on-error on-error
-                                       :on-success on-success})))))
+           (let [params (:clean-data @form)
+                 params (with-meta params
+                          {:on-error on-error
+                           :on-success on-success})]
+             (st/emit! (du/login-with-ldap params)))))
 
         on-recovery-request
         (mf/use-fn
@@ -302,4 +290,3 @@
         [:& lk/link {:action on-create-demo-profile
                      :data-test "demo-account-link"}
          (tr "auth.create-demo-account")]])]))
-
