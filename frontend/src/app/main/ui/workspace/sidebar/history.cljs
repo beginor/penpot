@@ -14,6 +14,7 @@
    [app.main.refs :as refs]
    [app.main.store :as st]
    [app.main.ui.icons :as i]
+   [app.util.dom :as dom]
    [app.util.i18n :refer [t] :as i18n]
    [cuerdas.core :as str]
    [okulary.core :as l]
@@ -301,8 +302,10 @@
       (when (:detail entry)
         [:div {:class (stl/css-case :history-entry-summary-button true
                                     :button-opened @show-detail?)
-               :on-click #(when (:detail entry)
-                            (swap! show-detail? not))}
+               :on-click (fn [event]
+                           (dom/stop-propagation event)
+                           (when (:detail entry)
+                             (swap! show-detail? not)))}
          i/arrow-refactor])]
 
      (when @show-detail?
