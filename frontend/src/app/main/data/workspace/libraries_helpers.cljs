@@ -1035,7 +1035,8 @@
                                (assoc :remote-synced true)
 
                                :always
-                               (assoc :shape-ref (:id original-shape)))))
+                               (-> (assoc :shape-ref (:id original-shape))
+                                   (dissoc :touched))))) ; New shape, by definition, is synced to the main shape
 
         update-original-shape (fn [original-shape _new-shape]
                                 original-shape)
@@ -1275,8 +1276,7 @@
 (defn- change-touched
   [changes dest-shape origin-shape container
    {:keys [reset-touched? copy-touched?] :as options}]
-  (if (or (nil? (:shape-ref dest-shape))
-          (not (or reset-touched? copy-touched?)))
+  (if (nil? (:shape-ref dest-shape))
     changes
     (do
       (log/info :msg (str "CHANGE-TOUCHED "
@@ -1289,12 +1289,16 @@
       (let [new-touched (cond
                           reset-touched?
                           nil
+
                           copy-touched?
                           (if (:remote-synced origin-shape)
                             nil
                             (set/union
                              (:touched dest-shape)
-                             (:touched origin-shape))))]
+                             (:touched origin-shape)))
+
+                          :else
+                          (:touched dest-shape))]
 
         (-> changes
             (update :redo-changes conj (make-change
